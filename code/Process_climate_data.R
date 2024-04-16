@@ -8,6 +8,7 @@
 library(dplyr)
 library(stars)
 library(raster)
+library(terra)
 library(ncmeta)
 
 # load in functions from #CEH script
@@ -102,3 +103,56 @@ plot(prec, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(
 plot(prec)
 
 stars::write_stars(prec, paste0(dirScratch,"chess_pr_1991_2011_monthly.tif"))
+
+### loop through monthly values to calculate CMD ----
+
+# CMD = climatic moisture deficit, required for ESC
+
+pet <- read_stars(paste0(dirScratch,"chess_pet_1991_2011_monthly.tif"))
+prec <- read_stars(paste0(dirScratch,"chess_pr_1991_2011_monthly.tif"))
+
+# calculate monthly moisture deficit (mMD)
+# mMD = pet - precip
+# positive values = deficit, negative values = surplus
+mMD <- pet - prec
+plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
+mMD
+stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+
+# issue here. can't read in tiff as brick, which then affects function below
+EtoPrDiff <- rast(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+EtoPrDiff <- raster::brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+
+calcCMD <- function(EtoPrDiff) {
+  EtoPrDiff <- EtoPrDiff[!is.na(EtoPrDiff)]
+  if (length(EtoPrDiff) > 0) {
+    CMD <- 0
+    accumulator <- 0
+    for (a in EtoPrDiff) {
+      if (accumulator >= 0) {
+        accumulator <- max(accumulator + a, 0)
+        if (accumulator > CMD) CMD <- accumulator
+      } else {
+        accumulator <- 0
+      }
+    }
+  } else {
+    CMD <- NA
+  }
+  
+  return(CMD)
+}
+
+#rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
+rasterCMD <- terra::app(EtoPrDiff, fun = calcCMD)
+
+plot(rasterCMD, col = hcl.colors(10))
+
+# apply adjustment
+diff <- 0.0011*rasterCMD^2 - 0.076*rasterCMD + 0.08465
+
+rasterCMD_adj <- rasterCMD - diff
+
+plot(rasterCMD_adj, col = hcl.colors(10))
+
+writeRaster(rasterCMD_adj, paste0(dirScratch,"/chess_CMD_adj_1991_2011_baseline.tif") , overwrite=TRUE)
