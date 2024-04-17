@@ -191,18 +191,29 @@ for (folder in lstFolders){
     # calculate monthly moisture deficit (mMD)
     # positive values = deficit, negative values = surplus
     mMD <- pet - prec
+    
+    mMD <- st_set_crs(mMD, 27700)
   
     #dev.off()
     #plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
     
     #stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
+    #writeRaster(mMD, filename=paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), format="GTiff",overwrite=TRUE)
     
     # issue here. can't read in tiff as brick, which then affects function below
     #EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
     
+    # https://cran.r-project.org/web/packages/stars/vignettes/stars1.html 
+    
+    mMD
+    mMD.split <- split(mMD, "band")
+    mMD.split
+    
+    dim(mMD.split[["jan"]])
     
     # work around - subset each month from stars object and convert to raster
     jan <- raster(mMD[[1]][,,1], crs = 27700)
+    jan <- as(mMD.split["jan",1:656,1:1057], "Raster")
     feb <- raster(mMD[[1]][,,2], crs = 27700)
     mar <- raster(mMD[[1]][,,3], crs = 27700)
     apr <- raster(mMD[[1]][,,4], crs = 27700)
