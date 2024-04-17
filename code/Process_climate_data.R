@@ -30,7 +30,7 @@ lstFolders <- c("chess_baseline","speed_future_rcp26","speed_future_rcp45","spee
 
 for (folder in lstFolders){
   
-  folder <- lstFolders[4]
+  folder <- lstFolders[1]
   
   lstFiles <- list.files(paste0(dirData,"/",folder))
   
@@ -115,6 +115,9 @@ for (folder in lstFolders){
     
     #x <- read_nc(paste0(dirData, metadata$file[i]))
     x <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[i]), 27700)
+    #x <- stars::read_stars(paste0(dirData,folder,"/",metadata$file[i]))
+    
+    x <- st_set_crs(x, 27700)
     
     # if pet file, convert monthly to total
     if (metadata$variable[i] == "pet"){
@@ -232,11 +235,11 @@ for (folder in lstFolders){
   
     if (folder == "chess_baseline"){
     
-      writeRaster(rasterCMD_adj, paste0(dirScratch,"chess_CMD_adj_1991_2011.tif"), overwrite = TRUE)
+      writeRaster(rasterCMD_adj, paste0(dirScratch,"chess_CMD_adj_1991_2011.tif"), format="GTiff", overwrite = TRUE)
     
       } else {
     
-        writeRaster(rasterCMD_adj, paste0(dirScratch,"speed",rcp,"_CMD_adj_",i,".tif"), overwrite = TRUE)
+        writeRaster(rasterCMD_adj, paste0(dirScratch,"speed",rcp,"_CMD_adj_",i,".tif"), format="GTiff", overwrite = TRUE)
     
       }
   }
