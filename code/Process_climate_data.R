@@ -121,59 +121,62 @@ for (folder in lstFolders){
   dev.off()
   plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
   
-  stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+  stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
   
-  EtoPrDiff <- raster::brick(mMD)
-  EtoPrDiff <- raster::brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+  # issue here. can't read in tiff as brick, which then affects function below
+  #EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
   
+  # work around - subset each month from stars object and convert to raster
+  jan <- raster(mMD[[1]][,,1], crs = 27700)
+  feb <- raster(mMD[[1]][,,2], crs = 27700)
+  mar <- raster(mMD[[1]][,,3], crs = 27700)
+  apr <- raster(mMD[[1]][,,4], crs = 27700)
+  may <- raster(mMD[[1]][,,5], crs = 27700)
+  jun <- raster(mMD[[1]][,,6], crs = 27700)
+  jul <- raster(mMD[[1]][,,7], crs = 27700)
+  aug <- raster(mMD[[1]][,,8], crs = 27700)
+  sep <- raster(mMD[[1]][,,9], crs = 27700)
+  oct <- raster(mMD[[1]][,,10], crs = 27700)
+  nov <- raster(mMD[[1]][,,11], crs = 27700)
+  dec <- raster(mMD[[1]][,,12], crs = 27700)
   
-}
-
-#pet <- read_stars(paste0(dirScratch,"chess_pet_1991_2011_monthly.tif"))
-#prec <- read_stars(paste0(dirScratch,"chess_pr_1991_2011_monthly.tif"))
-
-# calculate monthly moisture deficit (mMD)
-# mMD = pet - precip
-# positive values = deficit, negative values = surplus
-#mMD <- pet - prec
-#plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
-#mMD
-#stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
-
-# issue here. can't read in tiff as brick, which then affects function below
-#EtoPrDiff <- rast(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
-#EtoPrDiff <- raster::brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
-
-calcCMD <- function(EtoPrDiff) {
-  EtoPrDiff <- EtoPrDiff[!is.na(EtoPrDiff)]
-  if (length(EtoPrDiff) > 0) {
-    CMD <- 0
-    accumulator <- 0
-    for (a in EtoPrDiff) {
-      if (accumulator >= 0) {
-        accumulator <- max(accumulator + a, 0)
-        if (accumulator > CMD) CMD <- accumulator
-      } else {
-        accumulator <- 0
+  EtoPrDiff <- brick(jan,feb,mar,apr,may,jun,jul,aug,sep,oct,dec)
+  
+  calcCMD <- function(EtoPrDiff) {
+    EtoPrDiff <- EtoPrDiff[!is.na(EtoPrDiff)]
+    if (length(EtoPrDiff) > 0) {
+      CMD <- 0
+      accumulator <- 0
+      for (a in EtoPrDiff) {
+        if (accumulator >= 0) {
+          accumulator <- max(accumulator + a, 0)
+          if (accumulator > CMD) CMD <- accumulator
+        } else {
+          accumulator <- 0
+        }
       }
+    } else {
+      CMD <- NA
     }
-  } else {
-    CMD <- NA
+    
+    return(CMD)
   }
   
-  return(CMD)
+  rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
+  #rasterCMD <- terra::app(EtoPrDiff, fun = calcCMD)
+  
+  dev.off()
+  plot(rasterCMD, col = hcl.colors(10))
+  
+  # apply adjustment
+  diff <- 0.0011*rasterCMD^2 - 0.076*rasterCMD + 0.08465
+  
+  rasterCMD_adj <- rasterCMD - diff
+  
+  dev.off()
+  plot(rasterCMD_adj, col = hcl.colors(10))
+  
+  writeRaster(rasterCMD_adj, paste0(dirScratch,"/chess_CMD_adj_1991_2011_baseline.tif") , overwrite=TRUE)
+  
 }
 
-#rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
-rasterCMD <- terra::app(EtoPrDiff, fun = calcCMD)
-
-plot(rasterCMD, col = hcl.colors(10))
-
-# apply adjustment
-diff <- 0.0011*rasterCMD^2 - 0.076*rasterCMD + 0.08465
-
-rasterCMD_adj <- rasterCMD - diff
-
-plot(rasterCMD_adj, col = hcl.colors(10))
-
-writeRaster(rasterCMD_adj, paste0(dirScratch,"/chess_CMD_adj_1991_2011_baseline.tif") , overwrite=TRUE)
