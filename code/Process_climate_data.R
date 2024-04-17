@@ -1,8 +1,7 @@
 
 # date: 16-04-24
 # author: VB
-# desc: script to process climate data (CHESS baseline 1991-2011 from CEH), convert nc files to tif,
-# calculate CMD for ESC
+# desc: script to process climate data (CHESS baseline 1991-2011 and SPEED future secnarios (downscaled from UKCP18) from CEH), convert nc files to tif, and calculate CMD for ESC
 
 ### working dirs ----
 
@@ -31,7 +30,7 @@ lstFolders <- c("chess_baseline","speed_future_rcp26","speed_future_rcp45","spee
 
 for (folder in lstFolders){
   
-  #folder <- lstFolders[1]
+  folder <- lstFolders[4]
   
   lstFiles <- list.files(paste0(dirData,"/",folder))
   
@@ -112,7 +111,7 @@ for (folder in lstFolders){
   
   for (i in 1:nrow(metadata)){
     
-    #i <- 5
+    #i <- 1
     
     #x <- read_nc(paste0(dirData, metadata$file[i]))
     x <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[i]), 27700)
@@ -168,13 +167,13 @@ for (folder in lstFolders){
   }
   
   # need to do this per timestep
-  timesteps <- c("1991_2011","2010_2030","2020_2040","2030_2050","2040_2060","2050_2070","2060_2080")
+  timesteps <- c("2010_2030","2020_2040","2030_2050","2040_2060","2050_2070","2060_2080")
   
   for (i in timesteps){
     
-    #i <- "1991_2011"
-    
-    if (folder == "chess_baseline" & i == "1991_2011"){
+    if (folder == "chess_baseline"){
+      
+      i <- "1991_2011"
       
       pet <- read_stars(paste0(dirScratch,"/chess_pet_",i,"_monthly.tif"))
       prec <- read_stars(paste0(dirScratch,"/chess_precip_",i,"_monthly.tif"))
@@ -231,15 +230,47 @@ for (folder in lstFolders){
   
     #writeRaster(rasterCMD_adj, paste0(dirScratch,"/chess_CMD_adj_1991_2011_baseline.tif") , overwrite=TRUE)
   
-    if (folder == "chess_baseline" & i == "1991_2011"){
+    if (folder == "chess_baseline"){
     
-      writeRaster(rasterCMD_adj, paste0(dirScratch,"chess_CMD_adj_",i,".tif"), overwrite = TRUE)
+      writeRaster(rasterCMD_adj, paste0(dirScratch,"chess_CMD_adj_1991_2011.tif"), overwrite = TRUE)
     
       } else {
     
-        writeRaster(rasterCMD_adj, paste0(dirScratch,"speed_CMD_adj_",i,".tif"), overwrite = TRUE)
+        writeRaster(rasterCMD_adj, paste0(dirScratch,"speed",rcp,"_CMD_adj_",i,".tif"), overwrite = TRUE)
     
       }
-    }
+  }
+  
 }
+
+### now reproject and extend to same extent as ESC rasters ----
+
+# esc reference raster
+reference <- raster(paste0(dirData,"/ESC/ct.tif"))
+# aggregate to 1k
+reference <- aggregate(reference, fact=4,fun=min)
+plot(reference)
+
+files <- list.files(paste0(dirScratch),full.names = T)
+files <- Filter(function(x) grepl("CMD|gdd", x), files)
+files <- Filter(function(x) grepl("rcp26|rcp60", x), files)
+
+for (i in files){
+  
+  i <- files[1]
+  
+  x <- raster(i)
+  # assign projection
+  projection(x) <- crs(reference)
+  # extend to extent
+  x_crop <- extend(x,reference)
+  # write reprojected file
+  
+  file.name <- stringr::str_split(i,pattern = "/")[[1]][5]
+  reproj.name <- substr(file.name,1,nchar(file.name)-4)
+  
+  writeRaster(x_crop, paste0(dirScratch,"/speed_future_rst/",reproj.name,"_rpj.tif"),overwrite=T)
+  
+  }
+  
 
