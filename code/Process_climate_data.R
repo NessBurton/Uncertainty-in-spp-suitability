@@ -19,6 +19,7 @@ library(stars)
 library(raster)
 library(terra)
 library(ncmeta)
+library(ncdf4)
 
 # load in functions from #CEH script
 source(file.path(wd,"code","NC-to-tiff.R"))
@@ -34,81 +35,161 @@ for (folder in lstFolders){
   
   lstFiles <- list.files(paste0(dirData,"/",folder))
   
-  # create metadata
-  description <- c(
-    gdd = "growing degree days and number of days",
-    precip = "precipitation",
-    pet = "Penman-Monteith potential evapotranspiration, for a well-watered grass surface")
-  
-  metadata <- tibble::tibble(file = lstFiles) %>%
-    tidyr::extract(
-    file,
-    c("variable", "summary", "temp_resolution", "from", "to"),
-    "chess-[[:alpha:]]+_(.+)_[[:alpha:]]{2}_1km_20yr-([[:alpha:]]+)-([[:alpha:]]+)_([[:digit:]]+)-([[:digit:]]+)",
-    remove = FALSE) %>%
-    mutate(from_year = substr(from, 1, 4),
-           from_month = substr(from, 5, 6),
-           to_year = substr(to, 1, 4),
-           to_month = substr(to, 5, 6),
-           description = description[variable])
+  if (folder == "chess_baseline"){
+     
+    # create metadata
+    description <- c(
+      gdd = "growing degree days and number of days",
+      pr = "precipitation",
+      pet = "Penman-Monteith potential evapotranspiration, for a well-watered grass surface")
+    
+    metadata <- tibble::tibble(file = lstFiles) %>%
+      tidyr::extract(
+        file,
+        c("variable", "summary", "temp_resolution", "from", "to"),
+        "chess-[[:alpha:]]+_(.+)_[[:alpha:]]{2}_1km_20yr-([[:alpha:]]+)-([[:alpha:]]+)_([[:digit:]]+)-([[:digit:]]+)",
+        remove = FALSE) %>%
+      mutate(from_year = substr(from, 1, 4),
+             from_month = substr(from, 5, 6),
+             to_year = substr(to, 1, 4),
+             to_month = substr(to, 5, 6),
+             description = description[variable])
+  } else {
+    
+    rcp <- substring(folder, 14,18)
+    
+    # create metadata
+    description <- c(
+      gdd = "growing degree days and number of days",
+      precip = "precipitation",
+      pet = "Penman-Monteith potential evapotranspiration, for a well-watered grass surface")
+    
+    metadata <- tibble::tibble(file = lstFiles) %>%
+      tidyr::extract(
+        file,
+        c("variable", "summary", "temp_resolution", "from", "to"),
+        paste0(".+",rcp,"_bias_corrected_01_(.+)_uk_1km_20yr-([[:alpha:]]+)-([[:alpha:]]+)_([[:digit:]]+)-([[:digit:]]+)"),
+        remove = FALSE
+      ) %>%
+      mutate(
+        from_year = substr(from, 1, 4),
+        from_month = substr(from, 5, 6),
+        to_year = substr(to, 1, 4),
+        to_month = substr(to, 5, 6),
+        description = description[variable]
+      )
+    }
   
   write.csv(metadata, file.path(dirData,"/",folder, "metadata.csv"), row.names = FALSE)
   
   # process nc files
   
-  # gdd (growing degree days, sometimes called accumulated temperature AT)
-  gdd1991_2011 <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[4]), 27700)
-  plot(gdd1991_2011)
-  stars::write_stars(gdd1991_2011, dsn = paste0(dirScratch,"/chess_gdd_1991_2011_annual.tif"))
+  # loop to read each file, convert from averages to totals if either pet or pr, and write to tif
   
-  # precipitation
-  prec1991_2011 <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[8]), 27700)
-  plot(prec1991_2011)
+  pet_to_total <- function (x) {
+    month_days <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    dims <- dim(x)
+    total <- x * array(rep(month_days, each = prod(dims[1:2])), dims)
+    total <- st_set_dimensions(total, "band", tolower(month.abb))
+    total
+  }
   
-  # calculate total monthly precipitation
-  # the data provided is mean monthly precipitation (per second)
-  # needs to be transformed to total - multiply by the number seconds in a month
-  
-  # convert mean monthly precipitation per second to total
   precip_to_total <- function (x) {
     month_days <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
     month_seconds <- month_days * 3600 * 24
     dims <- dim(x)
     total <- x * array(rep(month_seconds, each = prod(dims[1:2])), dims)
-    total <- st_set_dimensions(total, "time", tolower(month.abb))
+    total <- st_set_dimensions(total, "band", tolower(month.abb))
     total
   }
   
-  prec <- precip_to_total(prec1991_2011)
   
-  dev.off()
-  plot(prec, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
+  for (i in 1:nrow(metadata)){
+    
+    #i <- 1
+    
+    #x <- read_nc(paste0(dirData, metadata$file[i]))
+    x <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[i]), 27700)
+    
+    # if pet file, convert monthly to total
+    if (metadata$variable[i] == "pet"){
+      
+      x <- pet_to_total(x)
+      
+    }
+    
+    # if pr file, convert monthly to total
+    if (metadata$variable[i] %in% c("pr","precip")){
+      
+      x <- pr_to_total(x)
+      
+    }
+    
+    if (folder == "chess_baseline"){
+      
+      stars::write_stars(x, paste0(dirScratch,"chess_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],".tif"))
+      
+    } else {
+      
+      stars::write_stars(x, dsn = paste0(dirScratch,"speed_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],"_",rcp,".tif"))
 
-  stars::write_stars(prec, paste0(dirScratch,"chess_pr_1991_2011_monthly.tif"))
-  
-  # potential evapotranspiration
-  pet1991_2011 <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[12]), path_baseline, 27700)
-  plot(pet1991_2011)
-  
-  # calculate total monthly potential evapotranspiration
-  # the data provided is mean monthly potential evapotranspiration (per day)
-  # it needs to be transformed to total - multiply by the number of days in a month
-  
-  # convert mean monthly potential evapotranspiration to total
-  pet_to_total <- function (x) {
-    month_days <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-    dims <- dim(x)
-    total <- x * array(rep(month_days, each = prod(dims[1:2])), dims)
-    total <- st_set_dimensions(total, "time", tolower(month.abb))
-    total
+    }
+    
   }
   
-  pet <- pet_to_total(pet1991_2011)
-  
-  dev.off()
-  plot(pet, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
-  
-  stars::write_stars(pet, dsn = paste0(dirScratch,"chess_pet_1991_2011_monthly.tif"))
+  # # gdd (growing degree days, sometimes called accumulated temperature AT)
+  # gdd1991_2011 <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[4]), 27700)
+  # plot(gdd1991_2011)
+  # stars::write_stars(gdd1991_2011, dsn = paste0(dirScratch,"/chess_gdd_1991_2011_annual.tif"))
+  # 
+  # # precipitation
+  # prec1991_2011 <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[8]), 27700)
+  # plot(prec1991_2011)
+  # 
+  # # calculate total monthly precipitation
+  # # the data provided is mean monthly precipitation (per second)
+  # # needs to be transformed to total - multiply by the number seconds in a month
+  # 
+  # # convert mean monthly precipitation per second to total
+  # precip_to_total <- function (x) {
+  #   month_days <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+  #   month_seconds <- month_days * 3600 * 24
+  #   dims <- dim(x)
+  #   total <- x * array(rep(month_seconds, each = prod(dims[1:2])), dims)
+  #   total <- st_set_dimensions(total, "time", tolower(month.abb))
+  #   total
+  # }
+  # 
+  # prec <- precip_to_total(prec1991_2011)
+  # 
+  # dev.off()
+  # plot(prec, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
+  # 
+  # stars::write_stars(prec, paste0(dirScratch,"chess_pr_1991_2011_monthly.tif"))
+  # 
+  # # potential evapotranspiration
+  # pet1991_2011 <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[12]), path_baseline, 27700)
+  # plot(pet1991_2011)
+  # 
+  # # calculate total monthly potential evapotranspiration
+  # # the data provided is mean monthly potential evapotranspiration (per day)
+  # # it needs to be transformed to total - multiply by the number of days in a month
+  # 
+  # # convert mean monthly potential evapotranspiration to total
+  # pet_to_total <- function (x) {
+  #   month_days <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+  #   dims <- dim(x)
+  #   total <- x * array(rep(month_days, each = prod(dims[1:2])), dims)
+  #   total <- st_set_dimensions(total, "time", tolower(month.abb))
+  #   total
+  # }
+  # 
+  # pet <- pet_to_total(pet1991_2011)
+  # 
+  # dev.off()
+  # plot(pet, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
+  # 
+  # stars::write_stars(pet, dsn = paste0(dirScratch,"chess_pet_1991_2011_monthly.tif"))
   
   # now calculate CMD = climatic moisture deficit, required for ESC
   # use monthly values for pet and prec
