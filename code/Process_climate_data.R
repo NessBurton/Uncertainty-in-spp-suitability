@@ -253,7 +253,7 @@ plot(reference)
 
 files <- list.files(paste0(dirScratch),full.names = T)
 files <- Filter(function(x) grepl("CMD|gdd", x), files)
-files <- Filter(function(x) grepl("rcp26|rcp60", x), files)
+#files <- Filter(function(x) grepl("rcp26|rcp45", x), files)
 
 for (i in files){
   
