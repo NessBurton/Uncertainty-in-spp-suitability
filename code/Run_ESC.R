@@ -103,23 +103,15 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
   suit  <-paste0( sp,"_soil_suit_",year)
   yc    <-paste0( sp,"_soil_yc_",year)
   
-  # don't need suitability for CRAFTY
-  #writeRaster(SUITS, filename=paste0("~/Documents/CRAFTY-UK/ESC/",suit), format="GTiff",overwrite=TRUE)
-  # baseline path
-  #writeRaster(YCS, filename=paste0(dirESC,"/outputs_CHESSbaseline/",yc), format="GTiff",overwrite=TRUE)
-  # adjusted CMD
-  #writeRaster(YCS, filename=paste0(dirESC,"/outputs_CHESSbaseline/",yc,"_mdAdj"), format="GTiff",overwrite=TRUE)
-  # scenarios path
-  #writeRaster(YCS, filename=paste0(dirESC,"/outputs_speedRCP85/",yc,"_mdAdj"), format="GTiff",overwrite=TRUE)  
-  writeRaster(YCS, filename=paste0(dirESC,"/outputs_speed_future/",yc,"_mdAdj_",rcp), format="GTiff",overwrite=TRUE)
+  writeRaster(SUITS, filename=paste0(dirOut,suit,"_mdAdj_",rcp), format="GTiff",overwrite=TRUE)
   
 }
 
 
 ### Baseline 1991 - 2011 -------------------------------------------------------
 
-AT <- raster(paste0(dirData,"chess_baseline_rst/gdd_1991_2011_annual_rpj.tif"))
-MD <- raster(paste0(dirData,"chess_baseline_rst/CMD_adj_1991_2011_baseline_rpj.tif"))
+AT <- raster(paste0(dirScratch,"chess_gdd_1991_2011_annual.tif"))
+MD <- raster(paste0(dirScratch,"chess_CMD_adj_1991_2011_baseline.tif"))
 
 stckESC <- stack(AT,MD,CT,DAMS,SMR,SNR)
 plot(stckESC)
@@ -129,7 +121,7 @@ for(i in 1:length(Species)){
 }
 
 # check
-rsts <- list.files(paste0(dirESC,"outputs_CHESSbaseline"),full.names = TRUE)
+rsts <- list.files(dirOut, full.names = TRUE)
 # non-adjusted
 #rsts <- grep("baseline.tif", rsts, value=TRUE)
 baselineESC <- do.call(stack, lapply(rsts, raster))
