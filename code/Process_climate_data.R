@@ -211,6 +211,8 @@ for (folder in lstFolders){
     
     dim(mMD.split[["jan"]])
     
+    as(mMD.split, "RasterBrick")
+    
     # work around - subset each month from stars object and convert to raster
     jan <- raster(mMD[[1]][,,1], crs = 27700)
     jan <- as(mMD.split["jan",1:656,1:1057], "Raster")
