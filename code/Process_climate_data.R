@@ -110,31 +110,39 @@ for (folder in lstFolders){
   
   stars::write_stars(pet, dsn = paste0(dirScratch,"chess_pet_1991_2011_monthly.tif"))
   
+  # now calculate CMD = climatic moisture deficit, required for ESC
+  # use monthly values for pet and prec
+  
+  # calculate monthly moisture deficit (mMD)
+  # mMD = pet - precip
+  # positive values = deficit, negative values = surplus
+  mMD <- pet - prec
+  
+  dev.off()
+  plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
+  
+  stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+  
+  EtoPrDiff <- raster::brick(mMD)
+  EtoPrDiff <- raster::brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+  
+  
 }
 
-
-
-
-
-
-### loop through monthly values to calculate CMD ----
-
-# CMD = climatic moisture deficit, required for ESC
-
-pet <- read_stars(paste0(dirScratch,"chess_pet_1991_2011_monthly.tif"))
-prec <- read_stars(paste0(dirScratch,"chess_pr_1991_2011_monthly.tif"))
+#pet <- read_stars(paste0(dirScratch,"chess_pet_1991_2011_monthly.tif"))
+#prec <- read_stars(paste0(dirScratch,"chess_pr_1991_2011_monthly.tif"))
 
 # calculate monthly moisture deficit (mMD)
 # mMD = pet - precip
 # positive values = deficit, negative values = surplus
-mMD <- pet - prec
-plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
-mMD
-stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+#mMD <- pet - prec
+#plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
+#mMD
+#stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
 
 # issue here. can't read in tiff as brick, which then affects function below
-EtoPrDiff <- rast(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
-EtoPrDiff <- raster::brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+#EtoPrDiff <- rast(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+#EtoPrDiff <- raster::brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
 
 calcCMD <- function(EtoPrDiff) {
   EtoPrDiff <- EtoPrDiff[!is.na(EtoPrDiff)]
