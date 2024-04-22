@@ -111,10 +111,31 @@ for (folder in lstFolders){
   
   for (i in 1:nrow(metadata)){
     
-    #i <- 1
+    i <- 1
     
-    #x <- read_nc(paste0(dirData, metadata$file[i]))
-    x <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[i]), 27700)
+    f <- paste0(dirData,folder,"/",metadata$file[i])
+    
+    nc_data <- nc_open(f)
+    lon <- ncvar_get(nc_data, "lon")
+    lat <- ncvar_get(nc_data, "lat", verbose = F)
+    t <- ncvar_get(nc_data, "time")
+    
+    var_array <- ncvar_get(nc_data, "gdd")
+    dim(var_array)
+    fillvalue <- ncatt_get(nc_data, "gdd", "_FillValue")
+    # replace fill values with r standard NA
+    #var_array[var_array == fillvalue$value] <- NA
+    
+    var_slice <- var_array[,1] 
+    
+    r <- raster(t(var_slice), xmn=min(lon), xmx=max(lon), ymn=min(lat), ymx=max(lat), crs=CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +nadgrids=OSTN15_NTv2_OSGBtoETRS.gsb +units=m +no_defs +type=crs"))
+    plot(r)
+    r <- flip(r, direction='y')
+    plot(r)
+    
+    #x <- read_ncdf(f, curvilinear = c("lat","long"), 27700)
+    x <- read_nc(metadata$file[i], paste0(dirData,folder), 27700)
+    #x <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[i]), 27700)
     #x <- stars::read_stars(paste0(dirData,folder,"/",metadata$file[i]))
     
     x <- st_set_crs(x, 27700)
@@ -135,11 +156,11 @@ for (folder in lstFolders){
     
     if (folder == "chess_baseline"){
       
-      stars::write_stars(x, paste0(dirScratch,"chess_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],".tif"))
+      stars::write_stars(x, paste0(dirScratch,"chess_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
       
     } else {
       
-      stars::write_stars(x, dsn = paste0(dirScratch,"speed_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],"_",rcp,".tif"))
+      stars::write_stars(x, dsn = paste0(dirScratch,"speed_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],"_",rcp,".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
 
     }
     
@@ -178,13 +199,13 @@ for (folder in lstFolders){
       
       i <- "1991_2011"
       
-      pet <- read_stars(paste0(dirScratch,"/chess_pet_",i,"_monthly.tif"))
-      prec <- read_stars(paste0(dirScratch,"/chess_precip_",i,"_monthly.tif"))
+      pet <- read_stars(paste0(dirScratch,"/chess_pet_",i,"_monthly.tif"), 27700)
+      prec <- read_stars(paste0(dirScratch,"/chess_precip_",i,"_monthly.tif"), 27700)
       
     } else {
       
-      pet <- read_stars(paste0(dirScratch,"/speed_pet_",i,"_monthly_",rcp,".tif"))
-      prec <- read_stars(paste0(dirScratch,"/speed_pr_",i,"_monthly_",rcp,".tif"))
+      pet <- read_stars(paste0(dirScratch,"/speed_pet_",i,"_monthly_",rcp,".tif"), 27700)
+      prec <- read_stars(paste0(dirScratch,"/speed_pr_",i,"_monthly_",rcp,".tif"), 27700)
       
       }
     
@@ -194,10 +215,10 @@ for (folder in lstFolders){
     
     mMD <- st_set_crs(mMD, 27700)
   
-    #dev.off()
-    #plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
+    dev.off()
+    plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
     
-    #stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
+    stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
     #writeRaster(mMD, filename=paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), format="GTiff",overwrite=TRUE)
     
     # issue here. can't read in tiff as brick, which then affects function below
@@ -213,8 +234,14 @@ for (folder in lstFolders){
     
     as(mMD.split, "RasterBrick")
     
+    mMD[,,1]
+    mMD[]
+    plot(mMD[,,,2])
+    jan <- mMD[,,,1]
+    jan
+    
     # work around - subset each month from stars object and convert to raster
-    jan <- raster(mMD[[1]][,,1], crs = 27700)
+    jan <- raster(mMD[,,1], crs = 27700)
     jan <- as(mMD.split["jan",1:656,1:1057], "Raster")
     feb <- raster(mMD[[1]][,,2], crs = 27700)
     mar <- raster(mMD[[1]][,,3], crs = 27700)
