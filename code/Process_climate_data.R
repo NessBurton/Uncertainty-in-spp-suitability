@@ -297,11 +297,12 @@ for (folder in lstFolders){
     # 
     # EtoPrDiff <- brick(jan,feb,mar,apr,may,jun,jul,aug,sep,oct,dec)
     # 
-    # rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
+    #rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
     #rasterCMD <- terra::app(EtoPrDiff, fun = calcCMD)
     
-    CMD <- st_apply(mMD.split, MARGIN = 2, FUN = calcCMD)
-    plot(CMD)
+    CMD <- st_apply(mMD.split, 1:2, FUN = calcCMD)
+    #CMD <- st_apply(mMD, "time", FUN = calcCMD)
+    plot(CMD["jun"])
   
     #dev.off()
     #plot(rasterCMD, col = hcl.colors(10))
