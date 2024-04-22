@@ -83,8 +83,8 @@ for (folder in lstFolders){
   
   # process nc files
   
-  # loop to read each file, convert from averages to totals if either pet or pr, and write to tif
-  
+ 
+  ### functions ----
   # calculate total monthly potential evapotranspiration
   # the data provided is mean monthly potential evapotranspiration (per day)
   # it needs to be transformed to total - multiply by the number of days in a month
@@ -108,37 +108,75 @@ for (folder in lstFolders){
     total
   }
   
+  # calculate CMD
+  calcCMD <- function(EtoPrDiff) {
+    EtoPrDiff <- EtoPrDiff[!is.na(EtoPrDiff)]
+    if (length(EtoPrDiff) > 0) {
+      CMD <- 0
+      accumulator <- 0
+      for (a in EtoPrDiff) {
+        if (accumulator >= 0) {
+          accumulator <- max(accumulator + a, 0)
+          if (accumulator > CMD) CMD <- accumulator
+        } else {
+          accumulator <- 0
+        }
+      }
+    } else {
+      CMD <- NA
+    }
+    
+    return(CMD)
+  }
   
-  for (i in 1:nrow(metadata)){
+  ### loop to calculate cmd from pet and pr ----
+  
+  metadata.filter <- filter(metadata, variable %in% c("pr","precip","pet"))
+  
+  lstYear <- metadata.filter$from_year
+  
+  for (folder in lstFolders){
     
-    i <- 1
+    folder <- lstFolders[1]
     
-    f <- paste0(dirData,folder,"/",metadata$file[i])
-    
-    nc_data <- nc_open(f)
-    lon <- ncvar_get(nc_data, "lon")
-    lat <- ncvar_get(nc_data, "lat", verbose = F)
-    t <- ncvar_get(nc_data, "time")
-    
-    var_array <- ncvar_get(nc_data, "gdd")
-    dim(var_array)
-    fillvalue <- ncatt_get(nc_data, "gdd", "_FillValue")
-    # replace fill values with r standard NA
-    #var_array[var_array == fillvalue$value] <- NA
-    
-    var_slice <- var_array[,1] 
-    
-    r <- raster(t(var_slice), xmn=min(lon), xmx=max(lon), ymn=min(lat), ymx=max(lat), crs=CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +nadgrids=OSTN15_NTv2_OSGBtoETRS.gsb +units=m +no_defs +type=crs"))
-    plot(r)
-    r <- flip(r, direction='y')
-    plot(r)
-    
-    #x <- read_ncdf(f, curvilinear = c("lat","long"), 27700)
-    x <- read_nc(metadata$file[i], paste0(dirData,folder), 27700)
-    #x <- stars::read_ncdf(file.path(dirData,folder,"/",metadata$file[i]), 27700)
-    #x <- stars::read_stars(paste0(dirData,folder,"/",metadata$file[i]))
-    
-    x <- st_set_crs(x, 27700)
+    for (yr in lstYear){
+      
+      yr <- lstYear[1]
+      
+      if (folder == "chess_baseline"){
+        
+        pr <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_precip_gb_1km_20yr-mean-monthly_",yr,"0101-19811231.nc"))
+        pr <- st_set_crs(pr, 27700) #  has values
+        # convert to monthly total
+        pr<- precip_to_total(pr)
+        
+        pet <- stars::read_ncdf(paste0(dirData,folder,"/chess-pe_pet_uk_1km_20yr-mean-monthly_",yr,"0101-19811231.nc"))
+        pet <- st_set_crs(pet, 27700) #  has values
+        pet <- pet_to_total(pet)
+        
+        # calculate monthly moisture deficit (mMD)
+        # positive values = deficit, negative values = surplus
+        mMD <- pet - pr
+        mMD <- st_set_crs(mMD, 27700) # has values
+        
+        stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
+
+        # issue here. can't read in tiff as brick, which then affects function below
+        EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+        
+
+      } else {
+        
+       # read in speed pattern
+        
+      }
+      
+      
+      
+      
+  }
+  
+ 
     
     # if pet file, convert monthly to total
     if (metadata$variable[i] == "pet"){
@@ -154,17 +192,21 @@ for (folder in lstFolders){
       
     }
     
-    if (folder == "chess_baseline"){
-      
-      stars::write_stars(x, paste0(dirScratch,"chess_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
-      
-    } else {
-      
-      stars::write_stars(x, dsn = paste0(dirScratch,"speed_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],"_",rcp,".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
-
-    }
+    x # has x/y values
+    plot(x)
     
-  }
+    # don't write out at this stage
+  #   if (folder == "chess_baseline"){
+  #     
+  #     stars::write_stars(x, paste0(dirScratch,"chess_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
+  #     
+  #   } else {
+  #     
+  #     stars::write_stars(x, dsn = paste0(dirScratch,"speed_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],"_",rcp,".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
+  # 
+  #   }
+  #   
+  # }
   
   # now calculate CMD = climatic moisture deficit, required for ESC
   # use monthly values for pet and prec
@@ -190,17 +232,20 @@ for (folder in lstFolders){
     return(CMD)
   }
   
-  # need to do this per timestep
-  timesteps <- c("2010_2030","2020_2040","2030_2050","2040_2060","2050_2070","2060_2080")
-  
-  for (i in timesteps){
-    
-    if (folder == "chess_baseline"){
-      
-      i <- "1991_2011"
+  # # need to do this per timestep
+  # timesteps <- c("2010_2030","2020_2040","2030_2050","2040_2060","2050_2070","2060_2080")
+  # 
+  # for (i in timesteps){
+  #   
+  #   if (folder == "chess_baseline"){
+  #     
+  #     i <- "1991_2011"
       
       pet <- read_stars(paste0(dirScratch,"/chess_pet_",i,"_monthly.tif"), 27700)
       prec <- read_stars(paste0(dirScratch,"/chess_precip_",i,"_monthly.tif"), 27700)
+      
+      pet <- st_set_crs(pet, 27700)
+      
       
     } else {
       
@@ -227,38 +272,36 @@ for (folder in lstFolders){
     # https://cran.r-project.org/web/packages/stars/vignettes/stars1.html 
     
     mMD
-    mMD.split <- split(mMD, "band")
+    mMD.split <- split(mMD, "time")
     mMD.split
     
-    dim(mMD.split[["jan"]])
-    
-    as(mMD.split, "RasterBrick")
-    
-    mMD[,,1]
-    mMD[]
-    plot(mMD[,,,2])
-    jan <- mMD[,,,1]
-    jan
+    mMD.split["jan"]
+   
+    mMD %>% 
+      slice(index = 1:12, along = "time") %>% 
+      plot()
     
     # work around - subset each month from stars object and convert to raster
-    jan <- raster(mMD[,,1], crs = 27700)
-    jan <- as(mMD.split["jan",1:656,1:1057], "Raster")
-    feb <- raster(mMD[[1]][,,2], crs = 27700)
-    mar <- raster(mMD[[1]][,,3], crs = 27700)
-    apr <- raster(mMD[[1]][,,4], crs = 27700)
-    may <- raster(mMD[[1]][,,5], crs = 27700)
-    jun <- raster(mMD[[1]][,,6], crs = 27700)
-    jul <- raster(mMD[[1]][,,7], crs = 27700)
-    aug <- raster(mMD[[1]][,,8], crs = 27700)
-    sep <- raster(mMD[[1]][,,9], crs = 27700)
-    oct <- raster(mMD[[1]][,,10], crs = 27700)
-    nov <- raster(mMD[[1]][,,11], crs = 27700)
-    dec <- raster(mMD[[1]][,,12], crs = 27700)
-    
-    EtoPrDiff <- brick(jan,feb,mar,apr,may,jun,jul,aug,sep,oct,dec)
-  
-    rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
+    # jan <- as(mMD.split["jan"], "Raster")
+    # feb <- raster(mMD[[1]][,,2], crs = 27700)
+    # mar <- raster(mMD[[1]][,,3], crs = 27700)
+    # apr <- raster(mMD[[1]][,,4], crs = 27700)
+    # may <- raster(mMD[[1]][,,5], crs = 27700)
+    # jun <- raster(mMD[[1]][,,6], crs = 27700)
+    # jul <- raster(mMD[[1]][,,7], crs = 27700)
+    # aug <- raster(mMD[[1]][,,8], crs = 27700)
+    # sep <- raster(mMD[[1]][,,9], crs = 27700)
+    # oct <- raster(mMD[[1]][,,10], crs = 27700)
+    # nov <- raster(mMD[[1]][,,11], crs = 27700)
+    # dec <- raster(mMD[[1]][,,12], crs = 27700)
+    # 
+    # EtoPrDiff <- brick(jan,feb,mar,apr,may,jun,jul,aug,sep,oct,dec)
+    # 
+    # rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
     #rasterCMD <- terra::app(EtoPrDiff, fun = calcCMD)
+    
+    CMD <- st_apply(mMD.split, MARGIN = 2, FUN = calcCMD)
+    plot(CMD)
   
     #dev.off()
     #plot(rasterCMD, col = hcl.colors(10))
