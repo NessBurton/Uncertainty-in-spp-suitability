@@ -168,8 +168,18 @@ for (folder in lstFolders){
         #EtoPrDiff <- st_apply(mMD[,,3], 1:3, calcCMD, keep = TRUE)
         #plot(EtoPrDiff)
         
-        CMD <- st_apply(mMD[,,,1:12], 1:2, calcCMD) # I think this should select times 1:12 (months jan-feb) from mMD, whilst keeping dimension x/y (1:2)
+        CMD <- st_apply(mMD[,,,1:12], 1:2, calcCMD, .fname = "CMD") # I think this should select times 1:12 (months jan-feb) from mMD, whilst keeping dimension x/y (1:2)
         # I think it bloody works!!!
+        plot(CMD)
+        
+         # apply adjustment
+        diff <- 0.0011*CMD^2 - 0.076*CMD + 0.08465
+        CMD_adj <- CMD - diff
+        
+        plot(CMD_adj)
+        
+        # write as raster, somehow
+        write_stars(CMD_adj, paste0(dirScratch,"chess_CMD_annual_",yr,".tif"))
 
       } else {
         
@@ -177,194 +187,10 @@ for (folder in lstFolders){
         
       }
       
-      
-      
-      
-  }
-  
- 
-    
-    # if pet file, convert monthly to total
-    if (metadata$variable[i] == "pet"){
-      
-      x <- pet_to_total(x)
-      
     }
-    
-    # if pr file, convert monthly to total
-    if (metadata$variable[i] %in% c("pr","precip")){
-      
-      x <- precip_to_total(x)
-      
     }
-    
-    x # has x/y values
-    plot(x)
-    
-    # don't write out at this stage
-  #   if (folder == "chess_baseline"){
-  #     
-  #     stars::write_stars(x, paste0(dirScratch,"chess_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
-  #     
-  #   } else {
-  #     
-  #     stars::write_stars(x, dsn = paste0(dirScratch,"speed_",metadata$variable[i],"_",metadata$from_year[i],"_",metadata$to_year[i],"_",metadata$temp_resolution[i],"_",rcp,".tif"), layer = paste0(metadata$variable[i]), update = TRUE)
-  # 
-  #   }
-  #   
-  # }
   
-  # now calculate CMD = climatic moisture deficit, required for ESC
-  # use monthly values for pet and prec
-  
-  # function
-  calcCMD <- function(EtoPrDiff) {
-    EtoPrDiff <- EtoPrDiff[!is.na(EtoPrDiff)]
-    if (length(EtoPrDiff) > 0) {
-      CMD <- 0
-      accumulator <- 0
-      for (a in EtoPrDiff) {
-        if (accumulator >= 0) {
-          accumulator <- max(accumulator + a, 0)
-          if (accumulator > CMD) CMD <- accumulator
-        } else {
-          accumulator <- 0
-        }
-      }
-    } else {
-      CMD <- NA
-    }
-    
-    return(CMD)
-  }
-  
-  # # need to do this per timestep
-  # timesteps <- c("2010_2030","2020_2040","2030_2050","2040_2060","2050_2070","2060_2080")
-  # 
-  # for (i in timesteps){
-  #   
-  #   if (folder == "chess_baseline"){
-  #     
-  #     i <- "1991_2011"
-      
-      pet <- read_stars(paste0(dirScratch,"/chess_pet_",i,"_monthly.tif"), 27700)
-      prec <- read_stars(paste0(dirScratch,"/chess_precip_",i,"_monthly.tif"), 27700)
-      
-      pet <- st_set_crs(pet, 27700)
-      
-      
-    } else {
-      
-      pet <- read_stars(paste0(dirScratch,"/speed_pet_",i,"_monthly_",rcp,".tif"), 27700)
-      prec <- read_stars(paste0(dirScratch,"/speed_pr_",i,"_monthly_",rcp,".tif"), 27700)
-      
-      }
-    
-    # calculate monthly moisture deficit (mMD)
-    # positive values = deficit, negative values = surplus
-    mMD <- pet - prec
-    
-    mMD <- st_set_crs(mMD, 27700)
-  
-    dev.off()
-    plot(mMD, key.pos = 4, key.width = lcm(1), box_col = "white", col = hcl.colors(10))
-    
-    stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
-    #writeRaster(mMD, filename=paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), format="GTiff",overwrite=TRUE)
-    
-    # issue here. can't read in tiff as brick, which then affects function below
-    #EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
-    
-    # https://cran.r-project.org/web/packages/stars/vignettes/stars1.html 
-    
-    mMD
-    plot(mMD)
-    mMD.split <- split(mMD, "time")
-    mMD.split
-    
-    mMD.split["jan"]
-    
-    slice(mMD, time, 1)
-    
-    # work around - subset each month from stars object and convert to raster
-    jan <- slice(mMD, time, 1)
-    plot(jan)
-    jan <- st_rasterize(jan)
-    feb <- slice(mMD, time, 2)
-    plot(feb)
-    # mar <- raster(mMD[,,3], crs = 27700)
-    # apr <- raster(mMD[[1]][,,4], crs = 27700)
-    # may <- raster(mMD[[1]][,,5], crs = 27700)
-    # jun <- raster(mMD[[1]][,,6], crs = 27700)
-    # jul <- raster(mMD[[1]][,,7], crs = 27700)
-    # aug <- raster(mMD[[1]][,,8], crs = 27700)
-    # sep <- raster(mMD[[1]][,,9], crs = 27700)
-    # oct <- raster(mMD[[1]][,,10], crs = 27700)
-    # nov <- raster(mMD[[1]][,,11], crs = 27700)
-    # dec <- raster(mMD[[1]][,,12], crs = 27700)
-    # 
-    # EtoPrDiff <- brick(jan,feb,mar,apr,may,jun,jul,aug,sep,oct,dec)
-    # 
-    #rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
-    #rasterCMD <- terra::app(EtoPrDiff, fun = calcCMD)
-   
-    accumulate_over_time <- function(stars_obj, x_attr, y_threshold) {
-      
-      # Extracting time dimension
-      time_dim <- which(names(dim(stars_obj)) == "time")
-      #time_dim <- stars_obj[,,1]
-      
-      # Extracting values of attribute x
-      x_values <- stars_obj$x_attr[,,1]
-      
-      # Initializing accumulator
-      accumulator <- 0
-      
-      # Looping through time dimension
-      for (i in 1:length(x_values)) {
-        # Checking if x value exceeds threshold
-        if (x_values[i] >= y_threshold) {
-          # Accumulating values
-          accumulator <- accumulator + x_values[i]
-        }
-      }
-      
-      return(accumulator)
-    }
-    
-    result <- accumulate_over_time(mMD, "pet", 0)
-    
-    
-    #CMD <- st_apply(mMD.split, 1:2, FUN = calcCMD)
-    CMD <- st_apply(mMD, 1:3, FUN = calcCMD)
-    #CMD <- st_apply(CMD, "time", FUN = sum)
-    plot(CMD)
-  
-    #dev.off()
-    #plot(rasterCMD, col = hcl.colors(10))
-  
-    # apply adjustment
-    diff <- 0.0011*rasterCMD^2 - 0.076*rasterCMD + 0.08465
-  
-    rasterCMD_adj <- rasterCMD - diff
-  
-    #dev.off()
-    #plot(rasterCMD_adj, col = hcl.colors(10))
-  
-    #writeRaster(rasterCMD_adj, paste0(dirScratch,"/chess_CMD_adj_1991_2011_baseline.tif") , overwrite=TRUE)
-  
-    if (folder == "chess_baseline"){
-    
-      writeRaster(rasterCMD_adj, paste0(dirScratch,"chess_CMD_adj_1991_2011.tif"), format="GTiff", overwrite = TRUE)
-    
-      } else {
-    
-        writeRaster(rasterCMD_adj, paste0(dirScratch,"speed",rcp,"_CMD_adj_",i,".tif"), format="GTiff", overwrite = TRUE)
-    
-      }
-  }
-  
-}
+
 
 ### now reproject and extend to same extent as ESC rasters ----
 
