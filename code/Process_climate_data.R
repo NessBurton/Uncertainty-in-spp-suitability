@@ -102,8 +102,8 @@ for (folder in lstFolders){
   precip_to_total <- function (x) {
     month_days <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
     month_seconds <- month_days * 3600 * 24
-    dims <- dim(x)
-    total <- x * array(rep(month_seconds, each = prod(dims[1:2])), dims)
+    dims <- dim(pr)
+    total <- pr * array(rep(month_seconds, each = prod(dims[1:2])), dims)
     total <- st_set_dimensions(total, "time", tolower(month.abb))
     total
   }
@@ -159,11 +159,13 @@ for (folder in lstFolders){
         mMD <- pet - pr
         mMD <- st_set_crs(mMD, 27700) # has values
         
-        stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
+        #stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
 
         # issue here. can't read in tiff as brick, which then affects function below
         EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
         
+        EtoPrDiff <- st_apply(mMD, 1:3, calcCMD, keep = TRUE)
+        plot(EtoPrDiff)
 
       } else {
         
@@ -272,19 +274,21 @@ for (folder in lstFolders){
     # https://cran.r-project.org/web/packages/stars/vignettes/stars1.html 
     
     mMD
+    plot(mMD)
     mMD.split <- split(mMD, "time")
     mMD.split
     
     mMD.split["jan"]
-   
-    mMD %>% 
-      slice(index = 1:12, along = "time") %>% 
-      plot()
+    
+    slice(mMD, time, 1)
     
     # work around - subset each month from stars object and convert to raster
-    # jan <- as(mMD.split["jan"], "Raster")
-    # feb <- raster(mMD[[1]][,,2], crs = 27700)
-    # mar <- raster(mMD[[1]][,,3], crs = 27700)
+    jan <- slice(mMD, time, 1)
+    plot(jan)
+    jan <- st_rasterize(jan)
+    feb <- slice(mMD, time, 2)
+    plot(feb)
+    # mar <- raster(mMD[,,3], crs = 27700)
     # apr <- raster(mMD[[1]][,,4], crs = 27700)
     # may <- raster(mMD[[1]][,,5], crs = 27700)
     # jun <- raster(mMD[[1]][,,6], crs = 27700)
@@ -299,10 +303,38 @@ for (folder in lstFolders){
     # 
     #rasterCMD <- raster::calc(EtoPrDiff, fun = calcCMD)
     #rasterCMD <- terra::app(EtoPrDiff, fun = calcCMD)
+   
+    accumulate_over_time <- function(stars_obj, x_attr, y_threshold) {
+      
+      # Extracting time dimension
+      time_dim <- which(names(dim(stars_obj)) == "time")
+      #time_dim <- stars_obj[,,1]
+      
+      # Extracting values of attribute x
+      x_values <- stars_obj$x_attr[,,1]
+      
+      # Initializing accumulator
+      accumulator <- 0
+      
+      # Looping through time dimension
+      for (i in 1:length(x_values)) {
+        # Checking if x value exceeds threshold
+        if (x_values[i] >= y_threshold) {
+          # Accumulating values
+          accumulator <- accumulator + x_values[i]
+        }
+      }
+      
+      return(accumulator)
+    }
     
-    CMD <- st_apply(mMD.split, 1:2, FUN = calcCMD)
-    #CMD <- st_apply(mMD, "time", FUN = calcCMD)
-    plot(CMD["jun"])
+    result <- accumulate_over_time(mMD, "pet", 0)
+    
+    
+    #CMD <- st_apply(mMD.split, 1:2, FUN = calcCMD)
+    CMD <- st_apply(mMD, 1:3, FUN = calcCMD)
+    #CMD <- st_apply(CMD, "time", FUN = sum)
+    plot(CMD)
   
     #dev.off()
     #plot(rasterCMD, col = hcl.colors(10))
