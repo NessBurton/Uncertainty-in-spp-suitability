@@ -108,7 +108,7 @@ for (folder in lstFolders){
     total
   }
   
-  # calculate CMD
+  # calculate CMD - function from  CEH
   calcCMD <- function(EtoPrDiff) {
     EtoPrDiff <- EtoPrDiff[!is.na(EtoPrDiff)]
     if (length(EtoPrDiff) > 0) {
@@ -128,6 +128,7 @@ for (folder in lstFolders){
     
     return(CMD)
   }
+  
   
   ### loop to calculate cmd from pet and pr ----
   
@@ -162,10 +163,13 @@ for (folder in lstFolders){
         #stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
 
         # issue here. can't read in tiff as brick, which then affects function below
-        EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
+        #EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
         
-        EtoPrDiff <- st_apply(mMD, 1:3, calcCMD, keep = TRUE)
-        plot(EtoPrDiff)
+        #EtoPrDiff <- st_apply(mMD[,,3], 1:3, calcCMD, keep = TRUE)
+        #plot(EtoPrDiff)
+        
+        CMD <- st_apply(mMD[,,,1:12], 1:2, calcCMD) # I think this should select times 1:12 (months jan-feb) from mMD, whilst keeping dimension x/y (1:2)
+        # I think it bloody works!!!
 
       } else {
         
