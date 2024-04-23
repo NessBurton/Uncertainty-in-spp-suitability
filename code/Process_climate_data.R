@@ -189,8 +189,12 @@ for (folder in lstFolders){
       
     }
     }
-  
 
+library(ggplot2)  
+ggplot()+
+  geom_stars(data = CMD_adj)
+
+na.omit(CMD_adj)
 
 ### now reproject and extend to same extent as ESC rasters ----
 
