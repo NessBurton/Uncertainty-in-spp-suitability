@@ -160,26 +160,31 @@ for (folder in lstFolders){
         mMD <- pet - pr
         mMD <- st_set_crs(mMD, 27700) # has values
         
-        #stars::write_stars(mMD, dsn = paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"), NA_value = NA)
-
-        # issue here. can't read in tiff as brick, which then affects function below
-        #EtoPrDiff <- brick(paste0(dirScratch,"chess_mMD_1991_2011_monthly.tif"))
-        
-        #EtoPrDiff <- st_apply(mMD[,,3], 1:3, calcCMD, keep = TRUE)
-        #plot(EtoPrDiff)
-        
+        #calculate climatic moisture deficit (CMD)
         CMD <- st_apply(mMD[,,,1:12], 1:2, calcCMD, .fname = "CMD") # I think this should select times 1:12 (months jan-feb) from mMD, whilst keeping dimension x/y (1:2)
         # I think it bloody works!!!
         plot(CMD)
         
-         # apply adjustment
+        # apply adjustment ( to account for penman montieth version of pet)
         diff <- 0.0011*CMD^2 - 0.076*CMD + 0.08465
         CMD_adj <- CMD - diff
         
         plot(CMD_adj)
         
         # write as raster, somehow
-        write_stars(CMD_adj, paste0(dirScratch,"chess_CMD_annual_",yr,".tif"))
+        write_stars(CMD_adj["CMD",,], dsn = paste0(dirScratch,"chess_CMD_annual_",yr,".tif"), update = TRUE)
+        #saveRDS(CMD["CMD",,], paste0(dirScratch,"chess_CMD_annual_",yr,".tif"))
+        
+        # test if it can be read back in as a raster
+        test <- read_stars(paste0(dirScratch,"chess_CMD_annual_",yr,".tif"))
+        #test <- raster::raster(test["CMD",,])
+        
+        plot(test)
+        
+        # try manually
+        xyz <- data.frame(x = CMD_adj[,1:656,], y = CMD_adj[,,1:1057], z = CMD_adj["CMD",,])
+        test2 <- rasterFromXYZ(xyz, crs = 27700)
+        CMD2 <- rast(test2[[1]], names = c("CMD"))
 
       } else {
         
@@ -192,14 +197,13 @@ for (folder in lstFolders){
 
 library(ggplot2)  
 ggplot()+
-  geom_stars(data = CMD_adj)
+  geom_stars(data = test)
 
-na.omit(CMD_adj)
 
 ### now reproject and extend to same extent as ESC rasters ----
 
 # esc reference raster
-reference <- raster(paste0(dirData,"/ESC/ct.tif"))
+reference <- rast(paste0(dirData,"/ESC/ct.tif"))
 # aggregate to 1k
 reference <- aggregate(reference, fact=4,fun=min)
 plot(reference)
@@ -213,8 +217,9 @@ for (i in files){
   i <- files[1]
   
   x <- raster(i)
+  x <- CMD2
   # assign projection
-  projection(x) <- crs(reference)
+  terra::project(x, reference) #) <- crs(reference)
   # extend to extent
   x_crop <- extend(x,reference)
   # write reprojected file
