@@ -30,56 +30,11 @@ lstFolders <- c("chess_baseline","speed_rcp26","speed_rcp45","speed_rcp85")
 
 for (folder in lstFolders){
   
-  folder <- lstFolders[2]
+  #folder <- lstFolders[2]
   
   print(paste0("Processing scenario: ",folder))
   
   lstFiles <- list.files(paste0(dirData,folder))
-  
-  if (folder == "chess_baseline"){
-     
-    # create metadata
-    description <- c(
-      gdd = "growing degree days and number of days",
-      precip = "precipitation",
-      pet = "Penman-Monteith potential evapotranspiration, for a well-watered grass surface")
-    
-    metadata <- tibble::tibble(file = lstFiles) %>%
-      tidyr::extract(
-        file,
-        c("variable", "summary", "temp_resolution", "from", "to"),
-        "chess-[[:alpha:]]+_(.+)_[[:alpha:]]{2}_1km_20yr-([[:alpha:]]+)-([[:alpha:]]+)_([[:digit:]]+)-([[:digit:]]+)",
-        remove = FALSE) %>%
-      mutate(from_year = substr(from, 1, 4),
-             from_month = substr(from, 5, 6),
-             to_year = substr(to, 1, 4),
-             to_month = substr(to, 5, 6),
-             description = description[variable])
-  } else {
-    
-    rcp <- substring(folder, 7,11)
-    
-    # create metadata
-    description <- c(
-      gdd = "growing degree days and number of days",
-      pr = "precipitation",
-      pet = "Penman-Monteith potential evapotranspiration, for a well-watered grass surface")
-    
-    metadata <- tibble::tibble(file = lstFiles) %>%
-      tidyr::extract(
-        file,
-        c("variable", "summary", "temp_resolution", "from", "to"),
-        paste0(".+",rcp,"_bias_corrected_01_(.+)_uk_1km_20yr-([[:alpha:]]+)-([[:alpha:]]+)_([[:digit:]]+)-([[:digit:]]+)"),
-        remove = FALSE
-      ) %>%
-      mutate(
-        from_year = substr(from, 1, 4),
-        from_month = substr(from, 5, 6),
-        to_year = substr(to, 1, 4),
-        to_month = substr(to, 5, 6),
-        description = description[variable]
-      )
-    }
   
   #write.csv(metadata, file.path(dirData,"/",folder, "metadata.csv"), row.names = FALSE)
   
@@ -148,6 +103,52 @@ for (folder in lstFolders){
   for (folder in lstFolders){
     
     #folder <- lstFolders[2]
+    
+    if (folder == "chess_baseline"){
+      
+      # create metadata
+      description <- c(
+        gdd = "growing degree days and number of days",
+        precip = "precipitation",
+        pet = "Penman-Monteith potential evapotranspiration, for a well-watered grass surface")
+      
+      metadata <- tibble::tibble(file = lstFiles) %>%
+        tidyr::extract(
+          file,
+          c("variable", "summary", "temp_resolution", "from", "to"),
+          "chess-[[:alpha:]]+_(.+)_[[:alpha:]]{2}_1km_20yr-([[:alpha:]]+)-([[:alpha:]]+)_([[:digit:]]+)-([[:digit:]]+)",
+          remove = FALSE) %>%
+        mutate(from_year = substr(from, 1, 4),
+               from_month = substr(from, 5, 6),
+               to_year = substr(to, 1, 4),
+               to_month = substr(to, 5, 6),
+               description = description[variable])
+    } else {
+      
+      rcp <- substring(folder, 7,11)
+      
+      # create metadata
+      description <- c(
+        gdd = "growing degree days and number of days",
+        pr = "precipitation",
+        pet = "Penman-Monteith potential evapotranspiration, for a well-watered grass surface")
+      
+      metadata <- tibble::tibble(file = lstFiles) %>%
+        tidyr::extract(
+          file,
+          c("variable", "summary", "temp_resolution", "from", "to"),
+          paste0(".+",rcp,"_bias_corrected_01_(.+)_uk_1km_20yr-([[:alpha:]]+)-([[:alpha:]]+)_([[:digit:]]+)-([[:digit:]]+)"),
+          remove = FALSE
+        ) %>%
+        mutate(
+          from_year = substr(from, 1, 4),
+          from_month = substr(from, 5, 6),
+          to_year = substr(to, 1, 4),
+          to_month = substr(to, 5, 6),
+          description = description[variable]
+        )
+    }
+    
     
     for (i in 1:length(lstFrmYear)){
       
