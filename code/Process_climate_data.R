@@ -79,10 +79,9 @@ for (folder in lstFolders){
       )
     }
   
-  write.csv(metadata, file.path(dirData,"/",folder, "metadata.csv"), row.names = FALSE)
+  #write.csv(metadata, file.path(dirData,"/",folder, "metadata.csv"), row.names = FALSE)
   
   # process nc files
-  
  
   ### functions ----
   # calculate total monthly potential evapotranspiration
@@ -129,29 +128,56 @@ for (folder in lstFolders){
     return(CMD)
   }
   
+  # reproject and extend to same extent as ESC raster
+  # esc reference raster
+  reference <- rast(paste0(dirData,"/ESC/ct.tif"))
+  # aggregate to 1k
+  reference <- aggregate(reference, fact=4,fun=min)
+  #plot(reference)
+  
   
   ### loop to calculate cmd from pet and pr ----
   
   metadata.filter <- filter(metadata, variable %in% c("pr","precip","pet"))
   
-  lstYear <- metadata.filter$from_year
+  lstFrmYear <- metadata.filter$from_year
+  lstToYear <- metadata.filter$to_year
   
   for (folder in lstFolders){
     
     folder <- lstFolders[1]
     
-    for (yr in lstYear){
+    for (yrFrm in lstFrmYear){
       
-      yr <- lstYear[1]
+      yrFrm <- lstFrmYear[1]
+      yrTo <- lstToYear[1]
       
       if (folder == "chess_baseline"){
         
-        pr <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_precip_gb_1km_20yr-mean-monthly_",yr,"0101-19811231.nc"))
+        # read in gdd
+        gdd <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_gdd_gb_1km_20yr-mean-annual_",yrFrm,"0101-",yrTo,"1231.nc"))
+        gdd <- st_set_crs(gdd, 27700)
+        # drop time dimension (annual so only 1)
+        gdd <- gdd[,1:656,1:1057,drop = TRUE] #%>%  dim()
+        # manually convert to raster
+        # reproject and extend to ESC req.
+        xyz <- data.frame(x = gdd[,1:656,], y = gdd[,,1:1057], z = gdd["gdd",,])
+        gdd2 <- rasterFromXYZ(xyz, crs = 27700)
+        gdd2 <- rast(gdd2[[1]], names = c("gdd"))
+        #print(plot(gdd2))
+        
+        # assign projection
+        terra::project(gdd2, reference) #) <- crs(reference)
+        # extend to extent
+        gdd2 <- extend(gdd2,reference)
+        #plot(gdd2)
+        
+        pr <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_precip_gb_1km_20yr-mean-monthly_",yrFrm,"0101-19811231.nc"))
         pr <- st_set_crs(pr, 27700) #  has values
         # convert to monthly total
         pr<- precip_to_total(pr)
         
-        pet <- stars::read_ncdf(paste0(dirData,folder,"/chess-pe_pet_uk_1km_20yr-mean-monthly_",yr,"0101-19811231.nc"))
+        pet <- stars::read_ncdf(paste0(dirData,folder,"/chess-pe_pet_uk_1km_20yr-mean-monthly_",yrFrm,"0101-19811231.nc"))
         pet <- st_set_crs(pet, 27700) #  has values
         pet <- pet_to_total(pet)
         
@@ -162,7 +188,6 @@ for (folder in lstFolders){
         
         #calculate climatic moisture deficit (CMD)
         CMD <- st_apply(mMD[,,,1:12], 1:2, calcCMD, .fname = "CMD") # I think this should select times 1:12 (months jan-feb) from mMD, whilst keeping dimension x/y (1:2)
-        # I think it bloody works!!!
         plot(CMD)
         
         # apply adjustment ( to account for penman montieth version of pet)
@@ -171,20 +196,19 @@ for (folder in lstFolders){
         
         plot(CMD_adj)
         
-        # write as raster, somehow
-        write_stars(CMD_adj["CMD",,], dsn = paste0(dirScratch,"chess_CMD_annual_",yr,".tif"), update = TRUE)
-        #saveRDS(CMD["CMD",,], paste0(dirScratch,"chess_CMD_annual_",yr,".tif"))
-        
-        # test if it can be read back in as a raster
-        test <- read_stars(paste0(dirScratch,"chess_CMD_annual_",yr,".tif"))
-        #test <- raster::raster(test["CMD",,])
-        
-        plot(test)
-        
-        # try manually
+        # manually extract values to get to a raster
         xyz <- data.frame(x = CMD_adj[,1:656,], y = CMD_adj[,,1:1057], z = CMD_adj["CMD",,])
-        test2 <- rasterFromXYZ(xyz, crs = 27700)
-        CMD2 <- rast(test2[[1]], names = c("CMD"))
+        CMD2 <- rasterFromXYZ(xyz, crs = 27700)
+        CMD2 <- rast(CMD2[[1]], names = c("CMD"))
+        print(plot(CMD2))
+   
+        # assign projection
+        terra::project(CMD2, reference) #) <- crs(reference)
+        # extend to extent
+        CMD2 <- extend(CMD2,reference)
+        
+        writeRaster(CMD2, paste0(dirScratch,"/speed_future_rst/",reproj.name,"_rpj.tif"),overwrite=T)
+        
 
       } else {
         
@@ -193,42 +217,5 @@ for (folder in lstFolders){
       }
       
     }
-    }
-
-library(ggplot2)  
-ggplot()+
-  geom_stars(data = test)
-
-
-### now reproject and extend to same extent as ESC rasters ----
-
-# esc reference raster
-reference <- rast(paste0(dirData,"/ESC/ct.tif"))
-# aggregate to 1k
-reference <- aggregate(reference, fact=4,fun=min)
-plot(reference)
-
-files <- list.files(paste0(dirScratch),full.names = T)
-files <- Filter(function(x) grepl("CMD|gdd", x), files)
-#files <- Filter(function(x) grepl("rcp26|rcp45", x), files)
-
-for (i in files){
-  
-  i <- files[1]
-  
-  x <- raster(i)
-  x <- CMD2
-  # assign projection
-  terra::project(x, reference) #) <- crs(reference)
-  # extend to extent
-  x_crop <- extend(x,reference)
-  # write reprojected file
-  
-  file.name <- stringr::str_split(i,pattern = "/")[[1]][5]
-  reproj.name <- substr(file.name,1,nchar(file.name)-4)
-  
-  writeRaster(x_crop, paste0(dirScratch,"/speed_future_rst/",reproj.name,"_rpj.tif"),overwrite=T)
-  
   }
-  
-
+  }
