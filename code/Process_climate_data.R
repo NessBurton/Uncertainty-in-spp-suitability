@@ -172,6 +172,10 @@ for (folder in lstFolders){
         gdd2 <- extend(gdd2,reference)
         #plot(gdd2)
         
+        # write to file
+        writeRaster(gdd2, paste0(dirScratch,"/chess_gdd_",yrFrm,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        
+        # read in pr
         pr <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_precip_gb_1km_20yr-mean-monthly_",yrFrm,"0101-19811231.nc"))
         pr <- st_set_crs(pr, 27700) #  has values
         # convert to monthly total
