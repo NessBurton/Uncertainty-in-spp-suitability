@@ -28,7 +28,7 @@ rasterOptions(maxmemory=2e+09, chunksize=1e+06,overwrite=T,tmptime=1.1)
 parameters <- read.csv(paste0(dirData,"ESC/esccoeffs_crafty.csv"))
 Species <- paste(parameters[,1])
 
-# filter to just species i need
+# filter to just species i need (all native options)
 Species <- c("PBI", "SBI", "SY", "BE", "AH", "POK", "SOK", "ASP", "BPO", "CAR", "ROW", "WWL")
 
 CT <- raster(paste0(dirData,"ESC/ct.tif")) # continentality
@@ -103,50 +103,44 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
   suit  <-paste0( sp,"_soil_suit_",year)
   yc    <-paste0( sp,"_soil_yc_",year)
   
-  writeRaster(SUITS, filename=paste0(dirOut,suit,"_mdAdj_",rcp), format="GTiff",overwrite=TRUE)
+  writeRaster(SUITS, filename=paste0(dirOut,suit,s,i), format="GTiff",overwrite=TRUE)
   
 }
 
 
-### Baseline 1991 - 2011 -------------------------------------------------------
 
-AT <- raster(paste0(dirScratch,"chess_gdd_1991_2011_annual.tif"))
-MD <- raster(paste0(dirScratch,"chess_CMD_adj_1991_2011_baseline.tif"))
+### Loop through files ---------------------------------------------------------
 
-stckESC <- stack(AT,MD,CT,DAMS,SMR,SNR)
-plot(stckESC)
+lstScenario <- c("chess","speed_rcp26","speed_rcp45","speed_rcp85")
 
-for(i in 1:length(Species)){
-  calculateEscSuitabilityForSpecies(sp=Species[i],AT, CT, DAMS, MD, SMR, SNR, "baseline")
-}
+timesteps <- c("2010-2030","2020-2040","2030-2050","2040-2060","2050-2070","2060-2080")
 
-# check
-rsts <- list.files(dirOut, full.names = TRUE)
-# non-adjusted
-#rsts <- grep("baseline.tif", rsts, value=TRUE)
-baselineESC <- do.call(stack, lapply(rsts, raster))
-plot(baselineESC)
-
-
-### Speed future timesteps -----------------------------------------------------
-
-lstRCP <- c("rcp26","rcp45","rcp60","rcp85")
-
-timesteps <- c("2010_2030","2020_2040","2030_2050","2040_2060","2050_2070","2060_2080")
-
-for (rcp in lstRCP){
+for (s in lstScenario){
   
-  #rcp <- lstRCP[1]
+  #s <- lstScenario[1]
   
-  for (i in timesteps){
+  if (s == "chess"){
     
-    #i <- "2010_2030"
-    
-    AT <- raster(paste0(dirData,"speed_future_rst/gdd_",i,"_annual_",rcp,"_rpj.tif"))
-    MD <- raster(paste0(dirData,"speed_future_rst/CMD_adj_",i,"_annual_",rcp,"_rpj.tif"))
+    AT <- raster(paste0(dirScratch,"chess_gdd_1981-2001_rpj.tif"))
+    MD <- raster(paste0(dirScratch,"chess_CMD_1981-2001_rpj.tif"))
     
     for(j in 1:length(Species)){
       calculateEscSuitabilityForSpecies(sp=Species[j],AT, CT, DAMS, MD, SMR, SNR, i)
+    }
+    
+  } else{
+    
+    for (i in timesteps){
+      
+      #i <- "2010_2030"
+      
+      AT <- raster(paste0(dirScratch,s,"_gdd_",i,"_rpj.tif"))
+      MD <- raster(paste0(dirScratch,s,"_CMD_",i,"_rpj.tif"))
+      
+      for(j in 1:length(Species)){
+        calculateEscSuitabilityForSpecies(sp=Species[j],AT, CT, DAMS, MD, SMR, SNR, i)
+      }
+      
     }
     
   }
