@@ -95,11 +95,6 @@ for (folder in lstFolders){
   
   ### loop to calculate cmd from pet and pr ----
   
-  metadata.filter <- filter(metadata, variable %in% c("pr","precip","pet"))
-  
-  lstFrmYear <- metadata.filter$from_year
-  lstToYear <- metadata.filter$to_year
-  
   for (folder in lstFolders){
     
     #folder <- lstFolders[2]
@@ -149,6 +144,10 @@ for (folder in lstFolders){
         )
     }
     
+    metadata.filter <- filter(metadata, variable %in% c("pr","precip","pet"))
+    
+    lstFrmYear <- metadata.filter$from_year
+    lstToYear <- metadata.filter$to_year
     
     for (i in 1:length(lstFrmYear)){
       
@@ -246,7 +245,7 @@ for (folder in lstFolders){
         #plot(gdd2)
         
         # write to file
-        writeRaster(gdd2, paste0(dirScratch,"speed_gdd_",yrFrm,"-",yrTo,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        writeRaster(gdd2, paste0(dirScratch,folder,"_gdd_",yrFrm,"-",yrTo,"_rpj.tif"),overwrite=T) # seems to be upside down?!
         
         print(paste0("gdd processed & written to file"))
         
@@ -288,7 +287,7 @@ for (folder in lstFolders){
         CMD2 <- extend(CMD2,reference)
         plot(CMD2)
         
-        writeRaster(CMD2, paste0(dirScratch,"speed_CMD_",yrFrm,"-",yrTo,"_rpj.tif"), overwrite=T)
+        writeRaster(CMD2, paste0(dirScratch,folder,"_CMD_",yrFrm,"-",yrTo,"_rpj.tif"), overwrite=T)
         
         print(paste0("CMD calculated and written to file"))
         
