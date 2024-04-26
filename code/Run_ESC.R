@@ -1,7 +1,7 @@
 
 # date: 17-04-24
 # author: VB
-# desc: script to run ESC for x native tree spp, for baseline & three climate scenarios
+# desc: script to run ESC for 12 native tree spp, for baseline & three climate scenarios
 
 ### working dirs ----
 
@@ -15,7 +15,7 @@ dirOut <- paste0(wd,"/data-out/")
 ### libs ----
 
 library(tidyverse)
-library(raster)
+library(terra)
 library(rgdal)
 
 
@@ -31,10 +31,10 @@ Species <- paste(parameters[,1])
 # filter to just species i need (all native options)
 Species <- c("PBI", "SBI", "SY", "BE", "AH", "POK", "SOK", "ASP", "BPO", "CAR", "ROW", "WWL")
 
-CT <- raster(paste0(dirData,"ESC/ct.tif")) # continentality
-DAMS <- raster(paste0(dirData,"ESC/dams.tif")) # detailed aspect method of scoring (wind risk)
-SMR <- raster(paste0(dirData,"ESC/smr.tif")) # soil moisture regime
-SNR <- raster(paste0(dirData,"ESC/snr.tif")) # soil nutrient regime
+CT <- rast(paste0(dirData,"ESC/ct.tif")) # continentality
+DAMS <- rast(paste0(dirData,"ESC/dams.tif")) # detailed aspect method of scoring (wind risk)
+SMR <- rast(paste0(dirData,"ESC/smr.tif")) # soil moisture regime
+SNR <- rast(paste0(dirData,"ESC/snr.tif")) # soil nutrient regime
 
 # original ESC rasters are at 250m res, CHESS are 1000m - aggregate ESC up to 1000
 CT <- aggregate(CT, fact=4,fun=min)
@@ -42,8 +42,12 @@ DAMS <- aggregate(DAMS, fact=4,fun=min)
 SMR <- aggregate(SMR, fact=4,fun=min)
 SNR <- aggregate(SNR, fact=4,fun=min)
 
-stckESC <- stack(CT,DAMS,SMR,SNR)
+stckESC <- c(CT,DAMS,SMR,SNR)
 plot(stckESC)
+
+crs(stckESC)
+
+# need to work out how to get esc rasters and my rasters in the same projection...
 
 ### function ESC ---------------------------------------------------------------
 
@@ -97,8 +101,8 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
   suitmat <- matrix(m, ncol=3, byrow=TRUE)
   ycmat   <- matrix(m2, ncol=3, byrow=TRUE)
   
-  SUITS <- reclassify(SUIT, suitmat)
-  YCS   <- reclassify(YC  , ycmat)
+  SUITS <- classify(SUIT, suitmat)
+  YCS   <- classify(YC  , ycmat)
   
   suit  <-paste0( sp,"_soil_suit_",year)
   yc    <-paste0( sp,"_soil_yc_",year)
@@ -117,7 +121,7 @@ timesteps <- c("2010-2030","2020-2040","2030-2050","2040-2060","2050-2070","2060
 
 for (s in lstScenario){
   
-  #s <- lstScenario[1]
+  s <- lstScenario[1]
   
   if (s == "chess"){
     
