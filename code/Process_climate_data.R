@@ -27,14 +27,13 @@ source(file.path(wd,"code","NC-to-tiff.R"))
 
 # list folders within data-raw
 lstFolders <- c("chess_baseline","speed_rcp26","speed_rcp45","speed_rcp85")
+lstFolders <- c("speed_rcp45","speed_rcp85")
 
 for (folder in lstFolders){
   
   #folder <- lstFolders[2]
   
   print(paste0("Processing scenario: ",folder))
-  
-  lstFiles <- list.files(paste0(dirData,folder))
   
   #write.csv(metadata, file.path(dirData,"/",folder, "metadata.csv"), row.names = FALSE)
   
@@ -98,6 +97,7 @@ for (folder in lstFolders){
   for (folder in lstFolders){
     
     #folder <- lstFolders[2]
+    lstFiles <- list.files(paste0(dirData,folder))
     
     if (folder == "chess_baseline"){
       
