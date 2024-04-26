@@ -32,6 +32,8 @@ for (folder in lstFolders){
   
   folder <- lstFolders[2]
   
+  print(paste0("Processing scenario: ",folder))
+  
   lstFiles <- list.files(paste0(dirData,folder))
   
   if (folder == "chess_baseline"){
@@ -145,12 +147,15 @@ for (folder in lstFolders){
   
   for (folder in lstFolders){
     
-    folder <- lstFolders[2]
+    #folder <- lstFolders[2]
     
-    for (yrFrm in lstFrmYear){
+    for (i in 1:length(lstFrmYear)){
       
-      yrFrm <- lstFrmYear[1]
-      yrTo <- lstToYear[1]
+      #i <- 1
+      yrFrm <- lstFrmYear[i]
+      yrTo <- lstToYear[i]
+      
+      print(paste0("Processing timestep from: ", yrFrm, " to ", yrTo, " for scenario ", folder))
       
       if (folder == "chess_baseline"){
         
@@ -173,15 +178,17 @@ for (folder in lstFolders){
         #plot(gdd2)
         
         # write to file
-        writeRaster(gdd2, paste0(dirScratch,"chess_gdd_",yrFrm,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        writeRaster(gdd2, paste0(dirScratch,"chess_gdd_",yrFrm,"-",yrTo,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        
+        print(paste0("gdd processed & written to file"))
         
         # read in pr
-        pr <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_precip_gb_1km_20yr-mean-monthly_",yrFrm,"0101-19811231.nc"))
+        pr <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_precip_gb_1km_20yr-mean-monthly_",yrFrm,"0101-",yrTo,"1231.nc"))
         pr <- st_set_crs(pr, 27700) #  has values
         # convert to monthly total
         pr<- precip_to_total(pr)
         
-        pet <- stars::read_ncdf(paste0(dirData,folder,"/chess-pe_pet_uk_1km_20yr-mean-monthly_",yrFrm,"0101-19811231.nc"))
+        pet <- stars::read_ncdf(paste0(dirData,folder,"/chess-pe_pet_uk_1km_20yr-mean-monthly_",yrFrm,"0101-",yrTo,"1231.nc"))
         pet <- st_set_crs(pet, 27700) #  has values
         pet <- pet_to_total(pet)
         
@@ -198,7 +205,7 @@ for (folder in lstFolders){
         diff <- 0.0011*CMD^2 - 0.076*CMD + 0.08465
         CMD_adj <- CMD - diff
         
-        plot(CMD_adj)
+        print(plot(CMD_adj))
         
         # manually extract values to get to a raster
         xyz <- data.frame(x = CMD_adj[,1:656,], y = CMD_adj[,,1:1057], z = CMD_adj["CMD",,])
@@ -211,8 +218,9 @@ for (folder in lstFolders){
         # extend to extent
         CMD2 <- extend(CMD2,reference)
         
-        writeRaster(CMD2, paste0(dirScratch,"chess_CMD_",yrFrm,"_rpj.tif"), overwrite=T)
+        writeRaster(CMD2, paste0(dirScratch,"chess_CMD_",yrFrm,"-",yrTo,"_rpj.tif"), overwrite=T)
         
+        print(paste0("CMD calculated and written to file"))
 
       } else {
         
@@ -237,7 +245,9 @@ for (folder in lstFolders){
         #plot(gdd2)
         
         # write to file
-        writeRaster(gdd2, paste0(dirScratch,"speed_gdd_",yrFrm,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        writeRaster(gdd2, paste0(dirScratch,"speed_gdd_",yrFrm,"-",yrTo,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        
+        print(paste0("gdd processed & written to file"))
         
         # read in pr
         pr <- stars::read_ncdf(paste0(dirData,folder,"/ukcp18-",folder,"_bias_corrected_01_pr_uk_1km_20yr-mean-monthly_",yrFrm,"12-",yrTo,"11.nc"))
@@ -277,7 +287,10 @@ for (folder in lstFolders){
         CMD2 <- extend(CMD2,reference)
         plot(CMD2)
         
-        writeRaster(CMD2, paste0(dirScratch,"speed_CMD_",yrFrm,"_rpj.tif"), overwrite=T)
+        writeRaster(CMD2, paste0(dirScratch,"speed_CMD_",yrFrm,"-",yrTo,"_rpj.tif"), overwrite=T)
+        
+        print(paste0("CMD calculated and written to file"))
+        
           
         }
         
