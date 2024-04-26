@@ -26,13 +26,13 @@ source(file.path(wd,"code","NC-to-tiff.R"))
 ### loop to process all .nc files, per baseline/scenario ----
 
 # list folders within data-raw
-lstFolders <- c("chess_baseline","speed_future_rcp26","speed_future_rcp45","speed_future_rcp85")
+lstFolders <- c("chess_baseline","speed_rcp26","speed_rcp45","speed_rcp85")
 
 for (folder in lstFolders){
   
-  folder <- lstFolders[1]
+  folder <- lstFolders[2]
   
-  lstFiles <- list.files(paste0(dirData,"/",folder))
+  lstFiles <- list.files(paste0(dirData,folder))
   
   if (folder == "chess_baseline"){
      
@@ -55,7 +55,7 @@ for (folder in lstFolders){
              description = description[variable])
   } else {
     
-    rcp <- substring(folder, 14,18)
+    rcp <- substring(folder, 7,11)
     
     # create metadata
     description <- c(
@@ -145,7 +145,7 @@ for (folder in lstFolders){
   
   for (folder in lstFolders){
     
-    folder <- lstFolders[1]
+    folder <- lstFolders[2]
     
     for (yrFrm in lstFrmYear){
       
@@ -173,7 +173,7 @@ for (folder in lstFolders){
         #plot(gdd2)
         
         # write to file
-        writeRaster(gdd2, paste0(dirScratch,"/chess_gdd_",yrFrm,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        writeRaster(gdd2, paste0(dirScratch,"chess_gdd_",yrFrm,"_rpj.tif"),overwrite=T) # seems to be upside down?!
         
         # read in pr
         pr <- stars::read_ncdf(paste0(dirData,folder,"/chess-met_precip_gb_1km_20yr-mean-monthly_",yrFrm,"0101-19811231.nc"))
@@ -211,15 +211,78 @@ for (folder in lstFolders){
         # extend to extent
         CMD2 <- extend(CMD2,reference)
         
-        writeRaster(CMD2, paste0(dirScratch,"/speed_future_rst/",reproj.name,"_rpj.tif"),overwrite=T)
+        writeRaster(CMD2, paste0(dirScratch,"chess_CMD_",yrFrm,"_rpj.tif"), overwrite=T)
         
 
       } else {
         
-       # read in speed pattern
+        # read in speed pattern
+        
+        # read in gdd
+        gdd <- stars::read_ncdf(paste0(dirData,folder,"/ukcp18-",folder,"_bias_corrected_01_gdd_uk_1km_20yr-mean-annual_",yrFrm,"1201-",yrTo,"1130.nc"))
+        gdd <- st_set_crs(gdd, 27700)
+        # drop time dimension (annual so only 1)
+        gdd <- gdd[,1:656,1:1057,drop = TRUE] #%>%  dim()
+        # manually convert to raster
+        xyz <- data.frame(x = gdd[,1:656,], y = gdd[,,1:1057], z = gdd["gdd",,])
+        gdd2 <- rasterFromXYZ(xyz, crs = 27700)
+        gdd2 <- rast(gdd2[[1]], names = c("gdd"))
+        print(plot(gdd2))
+        
+        # reproject and extend to ESC req.
+        # assign projection
+        terra::project(gdd2, reference) #) <- crs(reference)
+        # extend to extent
+        gdd2 <- extend(gdd2,reference)
+        #plot(gdd2)
+        
+        # write to file
+        writeRaster(gdd2, paste0(dirScratch,"speed_gdd_",yrFrm,"_rpj.tif"),overwrite=T) # seems to be upside down?!
+        
+        # read in pr
+        pr <- stars::read_ncdf(paste0(dirData,folder,"/ukcp18-",folder,"_bias_corrected_01_pr_uk_1km_20yr-mean-monthly_",yrFrm,"12-",yrTo,"11.nc"))
+        pr <- st_set_crs(pr, 27700) #  has values
+        # convert to monthly total
+        pr<- precip_to_total(pr)
+        
+        # read in pet
+        pet <- stars::read_ncdf(paste0(dirData,folder,"/ukcp18-",folder,"_bias_corrected_01_pet_uk_1km_20yr-mean-monthly_",yrFrm,"12-",yrTo,"11.nc"))
+        pet <- st_set_crs(pet, 27700) #  has values
+        pet <- pet_to_total(pet)
+        
+        # calculate monthly moisture deficit (mMD)
+        # positive values = deficit, negative values = surplus
+        mMD <- pet - pr
+        mMD <- st_set_crs(mMD, 27700) # has values
+        
+        # calculate climatic moisture deficit (CMD)
+        CMD <- st_apply(mMD[,,,1:12], 1:2, calcCMD, .fname = "CMD") # I think this should select times 1:12 (months jan-feb) from mMD, whilst keeping dimension x/y (1:2)
+        plot(CMD)
+        
+        # apply adjustment ( to account for penman montieth version of pet)
+        diff <- 0.0011*CMD^2 - 0.076*CMD + 0.08465
+        CMD_adj <- CMD - diff
+        
+        plot(CMD_adj)
+        
+        # manually extract values to get to a raster
+        xyz <- data.frame(x = CMD_adj[,1:656,], y = CMD_adj[,,1:1057], z = CMD_adj["CMD",,])
+        CMD2 <- rasterFromXYZ(xyz, crs = 27700)
+        CMD2 <- rast(CMD2[[1]], names = c("CMD"))
+        #print(plot(CMD2))
+        
+        # assign projection
+        terra::project(CMD2, reference) #) <- crs(reference)
+        # extend to extent
+        CMD2 <- extend(CMD2,reference)
+        plot(CMD2)
+        
+        writeRaster(CMD2, paste0(dirScratch,"speed_CMD_",yrFrm,"_rpj.tif"), overwrite=T)
+          
+        }
         
       }
       
     }
   }
-  }
+
