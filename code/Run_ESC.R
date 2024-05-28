@@ -60,7 +60,17 @@ crs(stckESC)
 
 calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
   
-  sppar<-as.numeric(subset(parameters,parameters$abbr==sp))
+  # test
+  sp <- "PBI"
+  year <- timesteps[1]
+  at <- AT
+  ct <- CT
+  da <- DAMS
+  md <- MD
+  smr <- SMR
+  snr <- SNR
+  
+  sppar<-snrsppar<-as.numeric(subset(parameters,parameters$abbr==sp))
   at4<-sppar[8]; at3<-sppar[9] ;at2<-sppar[10] ;at1<-sppar[11]
   md4<-sppar[12]; md3<-sppar[13] ;md2<-sppar[14] ;md1<-sppar[15]
   ct4<-sppar[16]; ct3<-sppar[17] ;ct2<-sppar[18] ;ct1<-sppar[19]
@@ -87,14 +97,18 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
   # SS_min <- stackApply(ESC_stack,indices=c(1,1,1), min, na.rm=F)
   
   # climate and soils
-  ESC_stack2<-stack(CTF,DAF,MDF,smrF,snrF)
-  SS_min2 <- stackApply(ESC_stack2,indices=c(1,1,1,1,1), min, na.rm=F) 
+  ESC_stack2<-c(CTF,DAF,MDF,smrF,snrF)
+  plot(ESC_stack2)
+  #SS_min2 <- stackApply(ESC_stack2,indices=c(1,1,1,1,1), min, na.rm=F) # stackApply no longer works so I need an alternative 
+  SS_min2 <- tapp(ESC_stack2, index = c(1,1,1,1,1), fun = min)
+  plot(SS_min2)
+  # this takes the minimum value from across the rasters - so the most limiting factor for tree growth in that 1km square?
   
   SUIT<-SS_min2*ATF #remember to change SS_min/2 here depending on if I have soils in or not
   YC<-SUIT*sppar[4]    
   
-  projection(SUIT)<-projection(da)
-  projection(YC)<-projection(da)
+  #projection(SUIT)<-projection(da)
+  #projection(YC)<-projection(da)
   
   # optional reclassification of suitability for m and m2 yield class, can take it out
   # name1<-paste(sp, names(at),sep = "_")
@@ -162,3 +176,17 @@ for (s in lstScenario){
   }
   
 }
+
+
+# test tapp and that it does what I think it does
+r <- rast(ncols=2, nrows=2)
+values(r) <- 1:ncell(r)
+r2 <- rast(ncols=2, nrows=2)
+values(r2) <- c(10,5,3,2)
+s <- c(r, r2)
+plot(s)
+#s <- s * 1:6
+b1 <- tapp(s, index=c(1,2), fun=min)
+b1; plot(b1)
+b2 <- tapp(s, c(1,1), fun=min)
+b2; plot(b2)
