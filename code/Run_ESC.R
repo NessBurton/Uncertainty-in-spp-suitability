@@ -16,13 +16,14 @@ dirOut <- paste0(wd,"/data-out/")
 
 library(tidyverse)
 library(terra)
-library(rgdal)
+#library(rgdal) #  now retired...
 
 
 ### ESC parameters and function ----
 
 # amend raster options - adjust memory etc 
-rasterOptions(maxmemory=2e+09, chunksize=1e+06,overwrite=T,tmptime=1.1)
+#rasterOptions(maxmemory=2e+09, chunksize=1e+06,overwrite=T,tmptime=1.1)
+terraOptions(maxmemory=2e+09, chunksize=1e+06,overwrite=T,tmptime=1.1)
 
 # read in parameters
 parameters <- read.csv(paste0(dirData,"ESC/esccoeffs_crafty.csv"))
@@ -46,8 +47,14 @@ stckESC <- c(CT,DAMS,SMR,SNR)
 plot(stckESC)
 
 crs(stckESC)
+# geodetic
 
 # need to work out how to get esc rasters and my rasters in the same projection...
+# my climate rasters
+#rst <- rast(paste0(dirScratch,"chess_gdd_1981-2001_rpj.tif"))
+#crs(rst)
+#crs(rst) <- "EPSG:4326"
+#plot(rst)
 
 ### function ESC ---------------------------------------------------------------
 
@@ -125,8 +132,11 @@ for (s in lstScenario){
   
   if (s == "chess"){
     
-    AT <- raster(paste0(dirScratch,"chess_gdd_1981-2001_rpj.tif"))
-    MD <- raster(paste0(dirScratch,"chess_CMD_1981-2001_rpj.tif"))
+    AT <- rast(paste0(dirScratch,"chess_gdd_1981-2001_rpj.tif"))
+    crs(AT) <- "EPSG:4326"
+    
+    MD <- rast(paste0(dirScratch,"chess_CMD_1981-2001_rpj.tif"))
+    crs(MD) <- "EPSG:4326"
     
     for(j in 1:length(Species)){
       calculateEscSuitabilityForSpecies(sp=Species[j],AT, CT, DAMS, MD, SMR, SNR, i)
@@ -138,7 +148,9 @@ for (s in lstScenario){
       
       #i <- "2010_2030"
       
-      AT <- raster(paste0(dirScratch,s,"_gdd_",i,"_rpj.tif"))
+      AT <- rast(paste0(dirScratch,s,"_gdd_",i,"_rpj.tif"))
+     
+      
       MD <- raster(paste0(dirScratch,s,"_CMD_",i,"_rpj.tif"))
       
       for(j in 1:length(Species)){
