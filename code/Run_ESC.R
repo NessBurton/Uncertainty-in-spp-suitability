@@ -141,7 +141,7 @@ timesteps <- c("2010-2030","2020-2040","2030-2050","2040-2060","2050-2070","2060
 
 for (s in lstScenario){
   
-  #s <- lstScenario[1]
+  s <- lstScenario[2]
   
   if (s == "chess"){
     
@@ -164,7 +164,7 @@ for (s in lstScenario){
       AT <- rast(paste0(dirScratch,s,"_gdd_",i,"_rpj.tif"))
       crs(AT) <- "EPSG:4326"
       
-      MD <- raster(paste0(dirScratch,s,"_CMD_",i,"_rpj.tif"))
+      MD <- rast(paste0(dirScratch,s,"_CMD_",i,"_rpj.tif"))
       crs(MD) <- "EPSG:4326"
       
       for(j in 1:length(Species)){
@@ -179,14 +179,14 @@ for (s in lstScenario){
 
 
 # test tapp and that it does what I think it does
-r <- rast(ncols=2, nrows=2)
-values(r) <- 1:ncell(r)
-r2 <- rast(ncols=2, nrows=2)
-values(r2) <- c(10,5,3,2)
-s <- c(r, r2)
-plot(s)
-#s <- s * 1:6
-b1 <- tapp(s, index=c(1,2), fun=min)
-b1; plot(b1)
-b2 <- tapp(s, c(1,1), fun=min)
-b2; plot(b2)
+# r <- rast(ncols=2, nrows=2)
+# values(r) <- 1:ncell(r)
+# r2 <- rast(ncols=2, nrows=2)
+# values(r2) <- c(10,5,3,2)
+# s <- c(r, r2)
+# plot(s)
+# #s <- s * 1:6
+# b1 <- tapp(s, index=c(1,2), fun=min)
+# b1; plot(b1)
+# b2 <- tapp(s, c(1,1), fun=min)
+# b2; plot(b2)
