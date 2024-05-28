@@ -58,10 +58,10 @@ crs(stckESC)
 
 ### function ESC ---------------------------------------------------------------
 
-calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
+calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,timestep){
   
   # test
-  sp <- "PBI"
+  sp <- Species[1]
   year <- timesteps[1]
   at <- AT
   ct <- CT
@@ -98,10 +98,10 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
   
   # climate and soils
   ESC_stack2<-c(CTF,DAF,MDF,smrF,snrF)
-  plot(ESC_stack2)
+  #plot(ESC_stack2)
   #SS_min2 <- stackApply(ESC_stack2,indices=c(1,1,1,1,1), min, na.rm=F) # stackApply no longer works so I need an alternative 
   SS_min2 <- tapp(ESC_stack2, index = c(1,1,1,1,1), fun = min)
-  plot(SS_min2)
+  #plot(SS_min2)
   # this takes the minimum value from across the rasters - so the most limiting factor for tree growth in that 1km square?
   
   SUIT<-SS_min2*ATF #remember to change SS_min/2 here depending on if I have soils in or not
@@ -128,11 +128,10 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,year){
   suit  <-paste0( sp,"_soil_suit_",year)
   yc    <-paste0( sp,"_soil_yc_",year)
   
-  writeRaster(SUITS, filename=paste0(dirOut,suit,s,i), format="GTiff",overwrite=TRUE)
+  writeRaster(SUITS, filename=paste0(dirOut,s,"_",suit,".tif"),overwrite=TRUE)
+  writeRaster(YCS, filename=paste0(dirOut,s,"_",yc,".tif"),overwrite=TRUE)
   
 }
-
-
 
 ### Loop through files ---------------------------------------------------------
 
@@ -142,18 +141,18 @@ timesteps <- c("2010-2030","2020-2040","2030-2050","2040-2060","2050-2070","2060
 
 for (s in lstScenario){
   
-  s <- lstScenario[1]
+  #s <- lstScenario[1]
   
   if (s == "chess"){
     
-    AT <- rast(paste0(dirScratch,"chess_gdd_1981-2001_rpj.tif"))
+    AT <- rast(paste0(dirScratch,"chess_gdd_1991-2011_rpj.tif"))
     crs(AT) <- "EPSG:4326"
     
-    MD <- rast(paste0(dirScratch,"chess_CMD_1981-2001_rpj.tif"))
+    MD <- rast(paste0(dirScratch,"chess_CMD_1991-2011_rpj.tif"))
     crs(MD) <- "EPSG:4326"
     
     for(j in 1:length(Species)){
-      calculateEscSuitabilityForSpecies(sp=Species[j],AT, CT, DAMS, MD, SMR, SNR, i)
+      calculateEscSuitabilityForSpecies(sp=Species[j],AT, CT, DAMS, MD, SMR, SNR, "1991-2011")
     }
     
   } else{
@@ -163,9 +162,10 @@ for (s in lstScenario){
       #i <- "2010_2030"
       
       AT <- rast(paste0(dirScratch,s,"_gdd_",i,"_rpj.tif"))
-     
+      crs(AT) <- "EPSG:4326"
       
       MD <- raster(paste0(dirScratch,s,"_CMD_",i,"_rpj.tif"))
+      crs(MD) <- "EPSG:4326"
       
       for(j in 1:length(Species)){
         calculateEscSuitabilityForSpecies(sp=Species[j],AT, CT, DAMS, MD, SMR, SNR, i)
