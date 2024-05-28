@@ -61,14 +61,14 @@ crs(stckESC)
 calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,timestep){
   
   # test
-  sp <- Species[1]
-  year <- timesteps[1]
-  at <- AT
-  ct <- CT
-  da <- DAMS
-  md <- MD
-  smr <- SMR
-  snr <- SNR
+  # sp <- Species[1]
+  # year <- timesteps[1]
+  # at <- AT
+  # ct <- CT
+  # da <- DAMS
+  # md <- MD
+  # smr <- SMR
+  # snr <- SNR
   
   sppar<-snrsppar<-as.numeric(subset(parameters,parameters$abbr==sp))
   at4<-sppar[8]; at3<-sppar[9] ;at2<-sppar[10] ;at1<-sppar[11]
@@ -125,8 +125,8 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,timestep){
   SUITS <- classify(SUIT, suitmat)
   YCS   <- classify(YC  , ycmat)
   
-  suit  <-paste0( sp,"_soil_suit_",year)
-  yc    <-paste0( sp,"_soil_yc_",year)
+  suit  <-paste0( sp,"_soil_suit_",timestep)
+  yc    <-paste0( sp,"_soil_yc_",timestep)
   
   writeRaster(SUITS, filename=paste0(dirOut,s,"_",suit,".tif"),overwrite=TRUE)
   writeRaster(YCS, filename=paste0(dirOut,s,"_",yc,".tif"),overwrite=TRUE)
@@ -141,7 +141,8 @@ timesteps <- c("2010-2030","2020-2040","2030-2050","2040-2060","2050-2070","2060
 
 for (s in lstScenario){
   
-  s <- lstScenario[2]
+  #s <- lstScenario[2]
+  print(s)
   
   if (s == "chess"){
     
@@ -160,6 +161,7 @@ for (s in lstScenario){
     for (i in timesteps){
       
       #i <- "2010_2030"
+      print(i)
       
       AT <- rast(paste0(dirScratch,s,"_gdd_",i,"_rpj.tif"))
       crs(AT) <- "EPSG:4326"
