@@ -110,7 +110,7 @@ calculateEscSuitabilityForSpecies <- function(sp,at,ct,da,md,smr,snr,timestep){
   #projection(SUIT)<-projection(da)
   #projection(YC)<-projection(da)
   
-  # optional reclassification of suitability for m and m2 yield class, can take it out
+  # optional reclassification, can take it out
   # name1<-paste(sp, names(at),sep = "_")
   # name2<-gsub("AT_","",name1)
   m  <- c(-1, 0.3, 1,  0.3, 0.5, 2,  0.5, 0.75, 3, 0.75, Inf, 4 )
